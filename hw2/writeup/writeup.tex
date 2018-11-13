@@ -1,0 +1,166 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% CS484 Written Question Template
+%
+% Acknowledgements:
+% The original code is written by Prof. James Tompkin (james_tompkin@brown.edu).
+% The second version is revised by Prof. Min H. Kim (minhkim@kaist.ac.kr).
+%
+% This is a LaTeX document. LaTeX is a markup language for producing 
+% documents. Your task is to fill out this document, then to compile 
+% it into a PDF document. 
+%
+% 
+% TO COMPILE:
+% > pdflatex thisfile.tex
+%
+% If you do not have LaTeX and need a LaTeX distribution:
+% - Personal laptops (all common OS): www.latex-project.org/get/
+% - We recommend latex compiler miktex (https://miktex.org/) for windows,
+%   macTex (http://www.tug.org/mactex/) for macOS users.
+%   And TeXstudio(http://www.texstudio.org/) for latex editor.
+%   You should install both compiler and editor for editing latex.
+%   The another option is Overleaf (https://www.overleaf.com/) which is 
+%   an online latex editor.
+%
+% If you need help with LaTeX, please come to office hours. 
+% Or, there is plenty of help online:
+% https://en.wikibooks.org/wiki/LaTeX
+%
+% Good luck!
+% Min and the CS484 staff
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% How to include two graphics on the same line:
+% 
+% \includegraphics[width=0.49\linewidth]{yourgraphic1.png}
+% \includegraphics[width=0.49\linewidth]{yourgraphic2.png}
+%
+% How to include equations:
+%
+% \begin{equation}
+% y = mx+c
+% \end{equation}
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[11pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[colorlinks = true,
+            linkcolor = blue,
+            urlcolor  = blue]{hyperref}
+\usepackage[a4paper,margin=1.5in]{geometry}
+\usepackage{stackengine,graphicx}
+\usepackage{fancyhdr}
+\setlength{\headheight}{15pt}
+\usepackage{microtype}
+\usepackage{times}
+\usepackage{booktabs}
+
+% From https://ctan.org/pkg/matlab-prettifier
+\usepackage[numbered,framed]{matlab-prettifier}
+
+\frenchspacing
+\setlength{\parindent}{0cm} % Default is 15pt.
+\setlength{\parskip}{0.3cm plus1mm minus1mm}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Homework Writeup}
+\rhead{CS484}
+\rfoot{\thepage}
+
+\date{}
+
+\title{\vspace{-1cm}Homework 2 Writeup}
+
+
+\begin{document}
+\maketitle
+\vspace{-3cm}
+\thispagestyle{fancy}
+
+\section*{Instructions}
+\begin{itemize}
+  \item Describe any interesting decisions you made to write your algorithm.
+  \item Show and discuss the results of your algorithm.
+  \item Feel free to include code snippets, images, and equations.
+  \item Use as many pages as you need, but err on the short side If you feel you only need to write a short amount to meet the brief, th
+  
+  \item \textbf{Please make this document anonymous.}
+\end{itemize}
+
+\section*{In the beginning...}
+
+In mathematical view, image convolution uses 2D matrix to effect the image. To achieve image convolution, we should receive an image, and the filter, usually has smaller size compared to the image.
+In transformation part, flipping the filter horizontally and vertically at first is necessary. Then locate the filter's first element at the pixel of the image. Do the elementwise multiplication, and sum up the result of the calculation, the output image's pixel at the same position of the center element of the filter would have that value.
+Do this for every pixel of the image. When filter exceeds the image, we need paddings for image to calculate the result properly. The padding could be 0, or the reflection of the image.
+After all the jobs are completed, the output image will come out, the image applied filter to the original image.
+
+\section*{Interesting Implementation Detail}
+
+My code uses reflection padding for getting better filter applied results.
+
+\begin{lstlisting}[style=Matlab-editor]
+[m, n] = size(image(:,:,1));
+[m_, n_] = size(filter);
+
+pad_m = (m_ - 1) ./ 2;
+pad_n = (n_ - 1) ./ 2;
+
+M = m + pad_m * 2;
+N = n + pad_n * 2;
+
+reflected_image = padarray(image, [pad_m pad_n 0], 'symmetric', 'both');
+\end{lstlisting}
+
+Then, we calculate elementwise multiplication per pixel, and sum them, and make it output's pixel value.
+filter should be flipped in two direction before the processing.
+
+\begin{lstlisting}[style=Matlab-editor]
+filter = flipud(fliplr(filter));
+temp = zeros([M N 3]);
+for i = 1:3
+    for x = pad_m + 1 : (pad_m + m)
+        for y = pad_n + 1 : (pad_n + n)
+            for k = -1 * pad_m : pad_m
+                for l = -1 * pad_n : pad_n
+                    reflected_image(x + k, y + l, i);
+                    filter(k + pad_m + 1, l + pad_n + 1);
+                    temp(x, y, i) = temp(x, y, i) + reflected_image(x + k, y + l, i) * filter(k + pad_m + 1, l + pad_n + 1);
+                end
+            end
+        end
+    end
+end
+
+output = real(temp(pad_m + 1: (m + pad_m), pad_n + 1 : (n + pad_n), :));
+\end{lstlisting}
+
+Also, we can call the function with the new argument: isftt. If it is 1, we use fft algorithm to generate the image. This is much faster.
+
+\begin{lstlisting}[style=Matlab-editor]
+if ~exist('isfft', 'var')
+    isfft = 0;
+end
+\end{lstlisting}
+
+\begin{lstlisting}[style=Matlab-editor]
+if (isfft == 1)
+    low_pass_image = ifft2(fft2(reflected_image) .* fft2(filter, M, N));
+
+    output = real(low_pass_image(m_ : (m + m_ - 1), n_ : (n + n_ - 1), :));
+else
+    % normal convolution code...
+end
+\end{lstlisting}
+
+\section*{A Result}
+
+We could extrace different feature from the two images, and make hybrid images with the code.
+But it takes some time to do the convolution; Maybe there is better algorithm or function to calculate sum of the elementwise multiplication.
+
+\end{document}
